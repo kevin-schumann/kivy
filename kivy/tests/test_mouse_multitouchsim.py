@@ -356,6 +356,11 @@ class MultitouchSimulatorTestCase(GraphicUnitTest):
         # when right - touch is preserved -> dot remains
         # when left  - touch is destroyed -> dot removed
         win.dispatch(
+            'on_mouse_move',
+            10, self.correct_y(win, 10),
+            {}
+        )
+        win.dispatch(
             'on_mouse_up',
             10, self.correct_y(win, 10),
             button, {}
@@ -555,6 +560,55 @@ class MultitouchSimulatorTestCase(GraphicUnitTest):
 
     def test_multitouch_disabled_rightmove(self):
         self.multitouch_dot_move('right', disabled=True)
+
+    def test_issue5058(self):
+        eventloop, win, mouse, wid = self.mouse_init()
+
+        # register mouse provider
+        mouse.disable_multitouch = True
+        mouse.start()
+        eventloop.add_input_provider(mouse)
+
+        # no mouse touch anywhere
+        self.assertEqual(mouse.counter, 0)
+        self.assertEqual(mouse.touches, {})
+
+        # left btn down -> right btn down ->
+        # -> left btn up -> right btn up
+        win.dispatch(
+            'on_mouse_down',
+            10, self.correct_y(win, 10),
+            'left', {}
+        )
+        win.dispatch(
+            'on_mouse_down',
+            10, self.correct_y(win, 10),
+            'right', {}
+        )
+        self.assertEqual(len(mouse.touches), 2)
+
+        win.dispatch(
+            'on_mouse_up',
+            10, self.correct_y(win, 10),
+            'left', {}
+        )
+        self.assertEqual(len(mouse.touches), 1)
+        self.assertTrue([t for t in mouse.touches.values()
+                        if t.button == 'right'])
+        self.assertFalse([t for t in mouse.touches.values()
+                          if t.button == 'left'])
+
+        win.dispatch(
+            'on_mouse_up',
+            10, self.correct_y(win, 10),
+            'right', {}
+        )
+        self.assertFalse(mouse.touches)
+
+        # cleanup!
+        # remove mouse provider
+        mouse.stop()
+        eventloop.remove_input_provider(mouse)
 
 
 if __name__ == '__main__':
